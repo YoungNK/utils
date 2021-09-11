@@ -1,6 +1,15 @@
 export type Loader = () => Promise<any>;
 
-export function batch(batchNumber: number, loaders: Loader[], gap = 30) {
+/**
+ * gap default = 30ms
+ * retryTime default = 1 , no retry
+ */
+export interface IExtraOption {
+    gap: number,
+    retryTime: number
+}
+
+export function batch(batchNumber: number, loaders: Loader[], option: IExtraOption): Promise<any[]> {
     const start = Date.now();
     let index = 0;
     let worker = 0;
@@ -9,7 +18,7 @@ export function batch(batchNumber: number, loaders: Loader[], gap = 30) {
     return new Promise((resolve, reject) => {
         function loop() {
             const tmpIdx = index;
-            loaders[index]().then((res) => {
+            retryCall(loaders[index], option.retryTime || 1, 1).then((res) => {
                 if (index < loaders.length) {
                     loop();
                     index++;
@@ -33,6 +42,44 @@ export function batch(batchNumber: number, loaders: Loader[], gap = 30) {
             if (worker >= batchNumber) {
                 clearInterval(handle)
             }
-        }, gap);
+        }, option.gap || 30);
+    })
+}
+
+export async function retryCall(loader: Loader, maxTimes: number, times = 1): Promise<any> {
+    try {
+        return await loader();
+    } catch (ex) {
+        console.warn(ex)
+        console.warn('retry ', times)
+        await sleep(20);
+        if (times < maxTimes) {
+            return await retryCall(loader, maxTimes, times + 1)
+        } else {
+            throw ex;
+        }
+    }
+}
+
+export function sleep(dur: number) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(true);
+        }, dur)
+    })
+}
+
+export function PromisWithTimeout<T>(promise: Promise<T>, dur: number): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const handle = setTimeout(() => {
+            reject(new Error('timeout'));
+        }, dur)
+        promise.then((res) => {
+            clearTimeout(handle)
+            resolve(res)
+        }).catch((err) => {
+            clearTimeout(handle)
+            reject(err)
+        });
     })
 }

@@ -1,6 +1,6 @@
 {
   "name": "@blockminner/batch-exec",
-  "version": "1.0.1",
+  "version": "1.0.9",
   "description": "",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -9,7 +9,6 @@
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
     "lint": "tslint -p tsconfig.json",
-    "lintfix": "tslint --fix",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
     "preversion": "npm run lint",
