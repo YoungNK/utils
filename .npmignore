@@ -1,0 +1,5 @@
+src/__tests__
+.gitignore
+.prettierrc
+.tsconfig
+.yarn.lock
