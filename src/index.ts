@@ -1,12 +1,16 @@
 export type Loader = () => Promise<any>;
 
+const defaultGap = 30;
+
 /**
  * gap default = 30ms
- * retryTime default = 1 , no retry
  */
 export interface IExtraOption {
     gap: number,
-    retryTime: number
+}
+
+export interface FixedExtraOption extends IExtraOption {
+    cbkGap: number,
 }
 
 export function batch(batchNumber: number, loaders: Loader[], option: IExtraOption): Promise<any[]> {
@@ -18,7 +22,7 @@ export function batch(batchNumber: number, loaders: Loader[], option: IExtraOpti
     return new Promise((resolve, reject) => {
         function loop() {
             const tmpIdx = index;
-            retryCall(loaders[tmpIdx], option.retryTime || 1, 1).then((res) => {
+            loaders[tmpIdx]().then((res) => {
                 resAll[tmpIdx] = res;
                 if (index < loaders.length) {
                     loop();
@@ -42,23 +46,8 @@ export function batch(batchNumber: number, loaders: Loader[], option: IExtraOpti
             if (worker >= batchNumber || worker >= loaders.length) {
                 clearInterval(handle)
             }
-        }, option.gap || 30);
+        }, option.gap || defaultGap);
     })
-}
-
-export async function retryCall(loader: Loader, maxTimes: number, times = 1): Promise<any> {
-    try {
-        return await loader();
-    } catch (ex) {
-        console.warn(ex)
-        console.warn('retry ', times)
-        await sleep(20);
-        if (times < maxTimes) {
-            return await retryCall(loader, maxTimes, times + 1)
-        } else {
-            throw ex;
-        }
-    }
 }
 
 export function sleep(dur: number) {
@@ -82,4 +71,42 @@ export function PromisWithTimeout<T>(promise: Promise<T>, dur: number): Promise<
             reject(err)
         });
     })
+}
+
+type CBK = (res: any[]) => void
+/**
+ * 固定频率发送
+ * @param loaders 
+ * @param option 
+ */
+export async function btachFixedGap(loaders: Loader[], option: FixedExtraOption, cbk: CBK) {
+    let i = 0;
+    const res: any[] = [];
+    let done = 0;
+    let start = Date.now();
+    let cbkIdx = 0;
+    function callCbk() {
+        const idx = (Date.now() - start) / option.cbkGap;
+        if (idx > cbkIdx) {
+            cbkIdx = idx;
+            cbk(res);
+        }
+    }
+    while (i < loaders.length) {
+        const tmp = i;
+        loaders[i]().then((res) => {
+            res[tmp] = res;
+            done++;
+        }).catch((err) => {
+            throw err;
+        })
+        sleep(option.gap || defaultGap)
+        callCbk()
+    }
+    while (done < loaders.length) {
+        sleep(option.cbkGap);
+        callCbk();
+    }
+    cbk(res);
+    return res;
 }
