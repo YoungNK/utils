@@ -18,11 +18,11 @@ export function batch(batchNumber: number, loaders: Loader[], option: IExtraOpti
     return new Promise((resolve, reject) => {
         function loop() {
             const tmpIdx = index;
-            retryCall(loaders[index], option.retryTime || 1, 1).then((res) => {
+            retryCall(loaders[tmpIdx], option.retryTime || 1, 1).then((res) => {
+                resAll[tmpIdx] = res;
                 if (index < loaders.length) {
                     loop();
                     index++;
-                    resAll[tmpIdx] = res;
                 } else {
                     worker--;
                     if (worker === 0) {
@@ -39,7 +39,7 @@ export function batch(batchNumber: number, loaders: Loader[], option: IExtraOpti
             loop();
             index++;
             worker++;
-            if (worker >= batchNumber) {
+            if (worker >= batchNumber || worker >= loaders.length) {
                 clearInterval(handle)
             }
         }, option.gap || 30);
